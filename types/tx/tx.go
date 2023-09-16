@@ -132,7 +132,7 @@ func (tx *Tx) BasicCheck() error {
 	}
 	if tx.LockTime() == 0 {
 		return BasicCheckError{
-			Reason: fmt.Sprintf("lock time is not defined"),
+			Reason: "lock time is not defined",
 		}
 	}
 	// TODO: Define it globally (  42*1e15 )?
