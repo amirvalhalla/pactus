@@ -104,14 +104,14 @@ func (vs *BinaryVoteSet) AddVote(v *vote.Vote) (bool, error) {
 	return true, err
 }
 
-func (vs *BinaryVoteSet) HasOneThirdOfTotalPower(cpRound int16) bool {
+func (vs *BinaryVoteSet) HasFPlusOneVotes(cpRound int16) bool {
 	roundVotes := vs.mustGetRoundVotes(cpRound)
-	return vs.isOneThirdOfTotalPower(roundVotes.votedPower)
+	return vs.hasFPlusOnePower(roundVotes.votedPower)
 }
 
-func (vs *BinaryVoteSet) HasTwoThirdOfTotalPower(cpRound int16) bool {
+func (vs *BinaryVoteSet) HasTwoFPlusOneVotes(cpRound int16) bool {
 	roundVotes := vs.mustGetRoundVotes(cpRound)
-	return vs.isTwoThirdOfTotalPower(roundVotes.votedPower)
+	return vs.hasTwoFPlusOnePower(roundVotes.votedPower)
 }
 
 func (vs *BinaryVoteSet) HasAnyVoteFor(cpRound int16, cpValue vote.CPValue) bool {
@@ -124,9 +124,9 @@ func (vs *BinaryVoteSet) HasAllVotesFor(cpRound int16, cpValue vote.CPValue) boo
 	return roundVotes.voteBoxes[cpValue].votedPower == roundVotes.votedPower
 }
 
-func (vs *BinaryVoteSet) HasQuorumVotesFor(cpRound int16, cpValue vote.CPValue) bool {
+func (vs *BinaryVoteSet) HasTwoFPlusOneVotesFor(cpRound int16, cpValue vote.CPValue) bool {
 	roundVotes := vs.mustGetRoundVotes(cpRound)
-	return vs.isTwoThirdOfTotalPower(roundVotes.voteBoxes[cpValue].votedPower)
+	return vs.hasTwoFPlusOnePower(roundVotes.voteBoxes[cpValue].votedPower)
 }
 
 func (vs *BinaryVoteSet) BinaryVotes(cpRound int16, cpValue vote.CPValue) map[crypto.Address]*vote.Vote {

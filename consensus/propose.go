@@ -24,7 +24,7 @@ func (s *proposeState) decide() {
 
 	s.cpRound = 0
 	s.cpDecided = -1
-	s.cpWeakValidity = nil
+	s.preparedHash = nil
 	s.enterNewState(s.prepareState)
 }
 

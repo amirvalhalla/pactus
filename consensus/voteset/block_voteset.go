@@ -85,7 +85,7 @@ func (vs *BlockVoteSet) AddVote(v *vote.Vote) (bool, error) {
 
 	blockVotes := vs.mustGetBlockVotes(v.BlockHash())
 	blockVotes.addVote(v, power)
-	if vs.isTwoThirdOfTotalPower(blockVotes.votedPower) {
+	if vs.hasTwoFPlusOnePower(blockVotes.votedPower) {
 		hash := v.BlockHash()
 		vs.quorumHash = &hash
 	}
@@ -93,13 +93,18 @@ func (vs *BlockVoteSet) AddVote(v *vote.Vote) (bool, error) {
 	return true, err
 }
 
-// HasQuorumHash checks if there is a block that has received quorum votes (2/3+ of total power).
+func (vs *BlockVoteSet) HasThreeFPlusOneVotesFor(hash hash.Hash) bool {
+	blockVotes := vs.mustGetBlockVotes(hash)
+	return vs.hasThreeFPlusOnePower(blockVotes.votedPower)
+}
+
+// HasQuorumHash checks if there is a block that has received quorum votes (2f+1 of total power).
 func (vs *BlockVoteSet) HasQuorumHash() bool {
 	return vs.quorumHash != nil
 }
 
-// QuorumHash returns the hash of the block that has received quorum votes (2/3+ of total power).
-// If no block has received the quorum threshold (2/3+ of total voting power), it returns nil.
+// QuorumHash returns the hash of the block that has received quorum votes (2f+1+ of total power).
+// If no block has received the quorum threshold, it returns nil.
 func (vs *BlockVoteSet) QuorumHash() *hash.Hash {
 	return vs.quorumHash
 }

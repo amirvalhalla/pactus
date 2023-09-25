@@ -17,15 +17,13 @@ func (s *cpPreVoteState) enter() {
 func (s *cpPreVoteState) decide() {
 	if s.cpRound == 0 {
 		// broadcast the initial value
-		prepares := s.log.PrepareVoteSet(s.round)
-		preparesQH := prepares.QuorumHash()
-		if preparesQH != nil {
-			s.cpWeakValidity = preparesQH
-			cert := s.makeCertificate(prepares.BlockVotes(*preparesQH))
+		if s.preparedHash != nil {
+			prepares := s.log.PrepareVoteSet(s.round)
+			cert := s.makeCertificate(prepares.BlockVotes(*s.preparedHash))
 			just := &vote.JustInitZero{
 				QCert: cert,
 			}
-			s.signAddCPPreVote(*s.cpWeakValidity, s.cpRound, 0, just)
+			s.signAddCPPreVote(*s.preparedHash, s.cpRound, 0, just)
 		} else {
 			just := &vote.JustInitOne{}
 			s.signAddCPPreVote(hash.UndefHash, s.cpRound, 1, just)
@@ -47,8 +45,8 @@ func (s *cpPreVoteState) decide() {
 			just0 := &vote.JustPreVoteHard{
 				QCert: vote0.CPJust().(*vote.JustMainVoteNoConflict).QCert,
 			}
-			s.signAddCPPreVote(*s.cpWeakValidity, s.cpRound, vote.CPValueZero, just0)
-		} else if cpMainVotes.HasAllVotesFor(s.cpRound-1, vote.CPValueAbstain) {
+			s.signAddCPPreVote(*s.preparedHash, s.cpRound, vote.CPValueZero, just0)
+		} else if cpMainVotes.HasTwoFPlusOneVotesFor(s.cpRound-1, vote.CPValueAbstain) {
 			s.logger.Info("cp: all main-votes are abstain", "b", "0 (biased)")
 
 			votes := cpMainVotes.BinaryVotes(s.cpRound-1, vote.CPValueAbstain)
@@ -56,7 +54,7 @@ func (s *cpPreVoteState) decide() {
 			just := &vote.JustPreVoteSoft{
 				QCert: cert,
 			}
-			s.signAddCPPreVote(*s.cpWeakValidity, s.cpRound, vote.CPValueZero, just)
+			s.signAddCPPreVote(*s.preparedHash, s.cpRound, vote.CPValueZero, just)
 		} else {
 			s.logger.Panic("protocol violated. We have combination of votes for one and zero")
 		}

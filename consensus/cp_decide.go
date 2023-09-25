@@ -25,13 +25,13 @@ func (s *cpDecideState) decide() {
 		s.enterNewState(s.prepareState)
 	} else {
 		cpMainVotes := s.log.CPMainVoteVoteSet(s.round)
-		if cpMainVotes.HasTwoThirdOfTotalPower(s.cpRound) {
-			if cpMainVotes.HasQuorumVotesFor(s.cpRound, vote.CPValueOne) {
+		if cpMainVotes.HasTwoFPlusOneVotes(s.cpRound) {
+			if cpMainVotes.HasTwoFPlusOneVotesFor(s.cpRound, vote.CPValueOne) {
 				// decided for yes, and proceeds to the next round
 				s.logger.Info("binary agreement decided", "value", 1, "round", s.cpRound)
 
 				s.cpDecided = 1
-			} else if cpMainVotes.HasQuorumVotesFor(s.cpRound, vote.CPValueZero) {
+			} else if cpMainVotes.HasTwoFPlusOneVotesFor(s.cpRound, vote.CPValueZero) {
 				// decided for no and proceeds to the next round
 				s.logger.Info("binary agreement decided", "value", 0, "round", s.cpRound)
 

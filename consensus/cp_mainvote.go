@@ -16,8 +16,8 @@ func (s *cpMainVoteState) enter() {
 
 func (s *cpMainVoteState) decide() {
 	cpPreVotes := s.log.CPPreVoteVoteSet(s.round)
-	if cpPreVotes.HasTwoThirdOfTotalPower(s.cpRound) {
-		if cpPreVotes.HasQuorumVotesFor(s.cpRound, vote.CPValueOne) {
+	if cpPreVotes.HasTwoFPlusOneVotes(s.cpRound) {
+		if cpPreVotes.HasTwoFPlusOneVotesFor(s.cpRound, vote.CPValueOne) {
 			s.logger.Info("cp: quorum for pre-votes", "v", "1")
 
 			votes := cpPreVotes.BinaryVotes(s.cpRound, vote.CPValueOne)
@@ -27,7 +27,7 @@ func (s *cpMainVoteState) decide() {
 			}
 			s.signAddCPMainVote(hash.UndefHash, s.cpRound, vote.CPValueOne, just)
 			s.enterNewState(s.cpDecideState)
-		} else if cpPreVotes.HasQuorumVotesFor(s.cpRound, vote.CPValueZero) {
+		} else if cpPreVotes.HasTwoFPlusOneVotesFor(s.cpRound, vote.CPValueZero) {
 			s.logger.Info("cp: quorum for pre-votes", "v", "0")
 
 			votes := cpPreVotes.BinaryVotes(s.cpRound, vote.CPValueZero)
@@ -35,7 +35,7 @@ func (s *cpMainVoteState) decide() {
 			just := &vote.JustMainVoteNoConflict{
 				QCert: cert,
 			}
-			s.signAddCPMainVote(*s.cpWeakValidity, s.cpRound, vote.CPValueZero, just)
+			s.signAddCPMainVote(*s.preparedHash, s.cpRound, vote.CPValueZero, just)
 			s.enterNewState(s.cpDecideState)
 		} else {
 			s.logger.Info("cp: no-quorum for pre-votes", "v", "abstain")
@@ -47,7 +47,7 @@ func (s *cpMainVoteState) decide() {
 				Just0: vote0.CPJust(),
 				Just1: vote1.CPJust(),
 			}
-			s.signAddCPMainVote(*s.cpWeakValidity, s.cpRound, vote.CPValueAbstain, just)
+			s.signAddCPMainVote(*s.preparedHash, s.cpRound, vote.CPValueAbstain, just)
 			s.enterNewState(s.cpDecideState)
 		}
 	}

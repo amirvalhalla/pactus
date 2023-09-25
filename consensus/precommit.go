@@ -36,16 +36,6 @@ func (s *precommitState) decide() {
 				s.enterNewState(s.commitState)
 			}
 		}
-	} else {
-		//
-		// If a validator receives a set of f+1 valid cp:PRE-VOTE votes for this round,
-		// it starts the changing proposer phase, even if its timer has not expired;
-		// This prevents it from starting the change-proposer phase too late.
-		//
-		cpPreVotes := s.log.CPPreVoteVoteSet(s.round)
-		if cpPreVotes.HasOneThirdOfTotalPower(0) {
-			s.startChangingProposer()
-		}
 	}
 }
 
@@ -61,17 +51,17 @@ func (s *precommitState) vote() {
 		return
 	}
 
-	prepares := s.log.PrepareVoteSet(s.round)
-	prepareQH := prepares.QuorumHash()
-	if !roundProposal.IsForBlock(*prepareQH) {
+	if !roundProposal.IsForBlock(*s.preparedHash) {
 		s.log.SetRoundProposal(s.round, nil)
 		s.queryProposal()
-		s.logger.Warn("double proposal detected", "roundProposal", roundProposal, "prepared", *prepareQH)
+		s.logger.Warn("double proposal detected",
+			"roundProposal", roundProposal,
+			"prepared", s.preparedHash.ShortString())
 		return
 	}
 
 	// Everything is good
-	s.signAddPrecommitVote(*prepareQH)
+	s.signAddPrecommitVote(*s.preparedHash)
 	s.hasVoted = true
 }
 
@@ -86,12 +76,8 @@ func (s *precommitState) onSetProposal(_ *proposal.Proposal) {
 	s.decide()
 }
 
-func (s *precommitState) onTimeout(t *ticker) {
-	s.logger.Debug("timer expired")
-
-	if t.Target == tickerTargetChangeProposer {
-		s.startChangingProposer()
-	}
+func (s *precommitState) onTimeout(_ *ticker) {
+	// Ignore timeouts
 }
 
 func (s *precommitState) name() string {

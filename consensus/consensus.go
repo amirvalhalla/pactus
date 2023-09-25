@@ -29,7 +29,7 @@ type consensus struct {
 	logger          *logger.SubLogger
 	log             *log.Log
 	validators      []*validator.Validator
-	cpWeakValidity  *hash.Hash // The change proposer's weak validity that is a prepared block hash
+	preparedHash    *hash.Hash // The change proposer's weak validity that is a prepared block hash
 	cpDecided       int
 	height          uint32
 	round           int16
@@ -284,11 +284,11 @@ func (cs *consensus) AddVote(v *vote.Vote) {
 			return
 		}
 
-		if v.Round() == cs.round && cs.cpWeakValidity == nil {
+		if v.Round() == cs.round && cs.preparedHash == nil {
 			if v.CPValue() == vote.CPValueZero ||
 				v.CPValue() == vote.CPValueAbstain {
 				bh := v.BlockHash()
-				cs.cpWeakValidity = &bh
+				cs.preparedHash = &bh
 
 				roundProposal := cs.log.RoundProposal(cs.round)
 

@@ -54,12 +54,29 @@ func (vs *voteSet) verifyVote(v *vote.Vote) (int64, error) {
 	return val.Power(), nil
 }
 
-func (vs *voteSet) isTwoThirdOfTotalPower(power int64) bool {
-	return power > (vs.totalPower * 2 / 3)
+// maximumFaultyPower calculates the maximum amount of power that can be faulty.
+// Given n is the total power, $$ f_max = (n-1) / 3 $$
+func (vs *voteSet) maximumFaultyPower(power int64) int64 {
+	// Adding 2 before division to ensure rounding up
+	return (vs.totalPower - 1 + 2) / 3
 }
 
-func (vs *voteSet) isOneThirdOfTotalPower(power int64) bool {
-	return power > (vs.totalPower * 1 / 3)
+// hasThreeFPlusOnePower checks whether the given power is greater than 3f+1,
+// where f is the maximum faulty power.
+func (vs *voteSet) hasThreeFPlusOnePower(power int64) bool {
+	return power > (3*vs.maximumFaultyPower(power) + 1)
+}
+
+// hasTwoFPlusOnePower checks whether the given power is greater than 2f+1,
+// where f is the maximum faulty power.
+func (vs *voteSet) hasTwoFPlusOnePower(power int64) bool {
+	return power > (2*vs.maximumFaultyPower(power) + 1)
+}
+
+// hasFPlusOnePower checks whether the given power is greater than f+1,
+// where f is the maximum faulty power.
+func (vs *voteSet) hasFPlusOnePower(power int64) bool {
+	return power > (vs.maximumFaultyPower(power) + 1)
 }
 
 func (vs *voteSet) String() string {

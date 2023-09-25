@@ -27,8 +27,14 @@ func (s *prepareState) decide() {
 	prepares := s.log.PrepareVoteSet(s.round)
 	prepareQH := prepares.QuorumHash()
 	if prepareQH != nil {
-		s.logger.Debug("prepare has quorum", "hash", prepareQH.ShortString())
-		s.enterNewState(s.precommitState)
+		if s.preparedHash == nil {
+			s.preparedHash = prepareQH
+		}
+
+		if prepares.HasThreeFPlusOneVotesFor(*prepareQH) {
+			s.logger.Debug("prepare 3f+1 votes", "hash", prepareQH.ShortString())
+			s.enterNewState(s.commitState)
+		}
 	} else {
 		//
 		// If a validator receives a set of f+1 valid cp:PRE-VOTE votes for this round,
@@ -36,7 +42,7 @@ func (s *prepareState) decide() {
 		// This prevents it from starting the change-proposer phase too late.
 		//
 		cpPreVotes := s.log.CPPreVoteVoteSet(s.round)
-		if cpPreVotes.HasOneThirdOfTotalPower(0) {
+		if cpPreVotes.HasFPlusOneVotes(0) {
 			s.startChangingProposer()
 		}
 	}
