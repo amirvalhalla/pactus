@@ -5,7 +5,6 @@ import (
 
 	"github.com/pactus-project/pactus/crypto"
 	"github.com/pactus-project/pactus/crypto/bls"
-	"github.com/pactus-project/pactus/crypto/hash"
 	"github.com/pactus-project/pactus/sortition"
 	"github.com/pactus-project/pactus/store"
 	"github.com/pactus-project/pactus/types/account"
@@ -363,20 +362,6 @@ func TestValidatorDeepCopy(t *testing.T) {
 	})
 }
 
-func TestRecentBlockByStamp(t *testing.T) {
-	td := setup(t)
-
-	h, b := td.sandbox.RecentBlockByStamp(td.RandStamp())
-	assert.Zero(t, h)
-	assert.Nil(t, b)
-
-	lastHeight, _ := td.store.LastCertificate()
-	lastHash := td.sandbox.store.BlockHash(lastHeight)
-	h, b = td.sandbox.RecentBlockByStamp(lastHash.Stamp())
-	assert.Equal(t, h, lastHeight)
-	assert.Equal(t, b.Hash(), lastHash)
-}
-
 func TestPowerDelta(t *testing.T) {
 	td := setup(t)
 
@@ -395,7 +380,7 @@ func TestVerifyProof(t *testing.T) {
 
 	// Try to evaluate a valid sortition
 	var validProof sortition.Proof
-	var validStamp hash.Stamp
+	var validLockTime uint32
 	var validVal *validator.Validator
 	for height := lastHeight; height > 0; height-- {
 		block := td.store.Blocks[height]
@@ -406,7 +391,7 @@ func TestVerifyProof(t *testing.T) {
 
 			if ok {
 				validProof = proof
-				validStamp = block.Stamp()
+				validLockTime = height
 				validVal = vals[i]
 			}
 		}
@@ -414,19 +399,17 @@ func TestVerifyProof(t *testing.T) {
 
 	t.Run("invalid proof", func(t *testing.T) {
 		invalidProof := td.RandProof()
-		assert.False(t, td.sandbox.VerifyProof(validStamp, invalidProof, validVal))
+		assert.False(t, td.sandbox.VerifyProof(validLockTime, invalidProof, validVal))
 	})
-	t.Run("invalid stamp", func(t *testing.T) {
-		invalidStamp := td.RandStamp()
-		assert.False(t, td.sandbox.VerifyProof(invalidStamp, validProof, validVal))
+	t.Run("invalid height", func(t *testing.T) {
+		assert.False(t, td.sandbox.VerifyProof(td.RandHeight(), validProof, validVal))
 	})
 
-	t.Run("genesis stamp", func(t *testing.T) {
-		invalidStamp := hash.UndefHash.Stamp()
-		assert.False(t, td.sandbox.VerifyProof(invalidStamp, validProof, validVal))
+	t.Run("genesis block height", func(t *testing.T) {
+		assert.False(t, td.sandbox.VerifyProof(0, validProof, validVal))
 	})
 
 	t.Run("Ok", func(t *testing.T) {
-		assert.True(t, td.sandbox.VerifyProof(validStamp, validProof, validVal))
+		assert.True(t, td.sandbox.VerifyProof(validLockTime, validProof, validVal))
 	})
 }

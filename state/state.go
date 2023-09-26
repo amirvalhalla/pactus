@@ -162,7 +162,7 @@ func (st *state) makeGenesisState(genDoc *genesis.Genesis) error {
 
 func (st *state) loadMerkels() {
 	totalAccount := st.store.TotalAccounts()
-	st.store.IterateAccounts(func(addr crypto.Address, acc *account.Account) (stop bool) {
+	st.store.IterateAccounts(func(addr crypto.Address, acc *account.Account) bool {
 		// Let's keep this check, even we have tested it
 		if acc.Number() >= totalAccount {
 			panic("Account number is out of range")
@@ -173,20 +173,20 @@ func (st *state) loadMerkels() {
 	})
 
 	totalValidator := st.store.TotalValidators()
-	st.store.IterateValidators(func(val *validator.Validator) (stop bool) {
+	st.store.IterateValidators(func(val *validator.Validator) bool {
 		// Let's keep this check, even we have tested it
 		if val.Number() >= totalValidator {
 			panic("Validator number is out of range")
 		}
 		st.validatorMerkle.SetHash(int(val.Number()), val.Hash())
 
-		return
+		return false
 	})
 }
 
 func (st *state) retrieveTotalPower() int64 {
 	totalPower := int64(0)
-	st.store.IterateValidators(func(val *validator.Validator) (stop bool) {
+	st.store.IterateValidators(func(val *validator.Validator) bool {
 		totalPower += val.Power()
 		return false
 	})
@@ -281,10 +281,9 @@ func (st *state) UpdateLastCertificate(cert *certificate.Certificate) error {
 }
 
 func (st *state) createSubsidyTx(rewardAddr crypto.Address, fee int64) *tx.Tx {
-	stamp := st.lastInfo.BlockHash().Stamp()
 	lockTime := st.lastInfo.BlockHeight() + 1
-	tx := tx.NewSubsidyTx(stamp, lockTime, rewardAddr, st.params.BlockReward+fee, "")
-	return tx
+	transaction := tx.NewSubsidyTx(lockTime, rewardAddr, st.params.BlockReward+fee, "")
+	return transaction
 }
 
 func (st *state) ProposeBlock(valKey *bls.ValidatorKey, rewardAddr crypto.Address, round int16) (*block.Block, error) {
@@ -474,7 +473,7 @@ func (st *state) evaluateSortition() bool {
 
 		ok, proof := sortition.EvaluateSortition(st.lastInfo.SortitionSeed(), key.PrivateKey(), st.totalPower, val.Power())
 		if ok {
-			trx := tx.NewSortitionTx(st.lastInfo.BlockHash().Stamp(), st.lastInfo.BlockHeight()+1, val.Address(), proof)
+			trx := tx.NewSortitionTx(st.lastInfo.BlockHeight(), val.Address(), proof)
 			sig := key.Sign(trx.SignBytes())
 			trx.SetSignature(sig)
 			trx.SetPublicKey(key.PublicKey())
@@ -736,4 +735,8 @@ func (st *state) CalculateFee(amount int64, payloadType payload.Type) (int64, er
 	default:
 		return 0, errors.Errorf(errors.ErrInvalidTx, "unexpected tx type: %v", payloadType)
 	}
+}
+
+func (st *state) PublicKey(addr crypto.Address) (crypto.PublicKey, error) {
+	return st.store.PublicKey(addr)
 }

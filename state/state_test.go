@@ -196,7 +196,7 @@ func TestProposeBlockAndValidation(t *testing.T) {
 	assert.Error(t, err, "Should not propose")
 	assert.Nil(t, b1)
 
-	trx := tx.NewTransferTx(td.state2.lastInfo.BlockHash().Stamp(), 1, td.valKey1.Address(),
+	trx := tx.NewTransferTx(td.state1.lastInfo.BlockHeight()+1, td.valKey1.Address(),
 		td.valKey2.Address(), 1000, 1000, "")
 	td.HelperSignTransaction(td.valKey1.PrivateKey(), trx)
 	assert.NoError(t, td.commonTxPool.AppendTx(trx))
@@ -434,7 +434,7 @@ func TestSortition(t *testing.T) {
 	height := uint32(1)
 	for ; height <= 15; height++ {
 		if height == 6 {
-			trx := tx.NewBondTx(td.state1.lastInfo.BlockHash().Stamp(), 1, td.valKey1.Address(),
+			trx := tx.NewBondTx(1, td.valKey1.Address(),
 				pub.ValidatorAddress(), pub, 1000000000, 100000, "")
 			td.HelperSignTransaction(td.valKey1.PrivateKey(), trx)
 
@@ -631,7 +631,7 @@ func TestLoadState(t *testing.T) {
 
 	// Add a bond transactions to change total power (stake)
 	pub, _ := td.RandBLSKeyPair()
-	tx2 := tx.NewBondTx(td.state1.LastBlockHash().Stamp(), 1, td.valKey1.Address(),
+	tx2 := tx.NewBondTx(1, td.valKey1.Address(),
 		pub.ValidatorAddress(), pub, 8888000, 8888, "")
 	td.HelperSignTransaction(td.valKey1.PrivateKey(), tx2)
 

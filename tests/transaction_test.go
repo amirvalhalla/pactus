@@ -24,9 +24,8 @@ func sendRawTx(t *testing.T, raw []byte) error {
 func broadcastSendTransaction(t *testing.T, sender *bls.ValidatorKey, receiver crypto.Address, amt, fee int64) error {
 	t.Helper()
 
-	stamp := lastHash().Stamp()
 	lockTime := lastHeight() + 1
-	trx := tx.NewTransferTx(stamp, lockTime, sender.PublicKey().AccountAddress(), receiver, amt, fee, "")
+	trx := tx.NewTransferTx(lockTime, sender.PublicKey().AccountAddress(), receiver, amt, fee, "")
 	sig := sender.Sign(trx.SignBytes())
 
 	trx.SetPublicKey(sender.PublicKey())
@@ -39,9 +38,8 @@ func broadcastSendTransaction(t *testing.T, sender *bls.ValidatorKey, receiver c
 func broadcastBondTransaction(t *testing.T, sender *bls.ValidatorKey, pub *bls.PublicKey, stake, fee int64) error {
 	t.Helper()
 
-	stamp := lastHash().Stamp()
 	lockTime := lastHeight() + 1
-	trx := tx.NewBondTx(stamp, lockTime, sender.PublicKey().AccountAddress(), pub.ValidatorAddress(), pub, stake, fee, "")
+	trx := tx.NewBondTx(lockTime, sender.PublicKey().AccountAddress(), pub.ValidatorAddress(), pub, stake, fee, "")
 	sig := sender.Sign(trx.SignBytes())
 
 	trx.SetPublicKey(sender.PublicKey())

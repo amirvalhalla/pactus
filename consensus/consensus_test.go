@@ -581,7 +581,7 @@ func TestDuplicateProposal(t *testing.T) {
 	h := uint32(4)
 	r := int16(0)
 	p1 := td.makeProposal(t, h, r)
-	trx := tx.NewTransferTx(hash.UndefHash.Stamp(), 1, td.valKeys[0].Address(),
+	trx := tx.NewTransferTx(h, td.valKeys[0].Address(),
 		td.valKeys[1].Address(), 1000, 1000, "proposal changer")
 	td.HelperSignTransaction(td.valKeys[0].PrivateKey(), trx)
 	assert.NoError(t, td.txPool.AppendTx(trx))
@@ -780,7 +780,7 @@ func TestByzantine(t *testing.T) {
 	// =================================
 	// P votes
 	// Byzantine node create the second proposal and send it to the partitioned node P
-	byzTrx := tx.NewTransferTx(hash.UndefHash.Stamp(), 1,
+	byzTrx := tx.NewTransferTx(h,
 		td.consB.rewardAddr, td.RandAccAddress(), 1000, 1000, "")
 	assert.NoError(t, td.txPool.AppendTx(byzTrx))
 	p2 := td.makeProposal(t, h, r)

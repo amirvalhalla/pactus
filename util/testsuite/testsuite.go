@@ -202,11 +202,6 @@ func (ts *TestSuite) RandHash() hash.Hash {
 	return hash.CalcHash(util.Int64ToSlice(ts.RandInt64(util.MaxInt64)))
 }
 
-// RandStamp generates a random stamp for testing purposes.
-func (ts *TestSuite) RandStamp() hash.Stamp {
-	return ts.RandHash().Stamp()
-}
-
 // RandAccAddress generates a random account address for testing purposes.
 func (ts *TestSuite) RandAccAddress() crypto.Address {
 	addr := crypto.NewAddress(crypto.AddressTypeBLSAccount, ts.RandBytes(20))
@@ -325,9 +320,8 @@ func (ts *TestSuite) GenerateTestProposal(height uint32, round int16) (*proposal
 
 // GenerateTestTransferTx generates a transfer transaction for testing purposes.
 func (ts *TestSuite) GenerateTestTransferTx() (*tx.Tx, *bls.PrivateKey) {
-	stamp := ts.RandStamp()
 	pub, prv := ts.RandBLSKeyPair()
-	trx := tx.NewTransferTx(stamp, ts.RandHeight(), pub.AccountAddress(), ts.RandAccAddress(),
+	trx := tx.NewTransferTx(ts.RandHeight(), pub.AccountAddress(), ts.RandAccAddress(),
 		ts.RandInt64(1000*1e10), ts.RandInt64(1*1e10), "test send-tx")
 	ts.HelperSignTransaction(prv, trx)
 
@@ -336,9 +330,8 @@ func (ts *TestSuite) GenerateTestTransferTx() (*tx.Tx, *bls.PrivateKey) {
 
 // GenerateTestBondTx generates a bond transaction for testing purposes.
 func (ts *TestSuite) GenerateTestBondTx() (*tx.Tx, *bls.PrivateKey) {
-	stamp := ts.RandStamp()
 	pub, prv := ts.RandBLSKeyPair()
-	trx := tx.NewBondTx(stamp, ts.RandHeight(), pub.AccountAddress(), ts.RandValAddress(),
+	trx := tx.NewBondTx(ts.RandHeight(), pub.AccountAddress(), ts.RandValAddress(),
 		nil, ts.RandInt64(1000*1e10), ts.RandInt64(1*1e10), "test bond-tx")
 	ts.HelperSignTransaction(prv, trx)
 
@@ -347,10 +340,9 @@ func (ts *TestSuite) GenerateTestBondTx() (*tx.Tx, *bls.PrivateKey) {
 
 // GenerateTestSortitionTx generates a sortition transaction for testing purposes.
 func (ts *TestSuite) GenerateTestSortitionTx() (*tx.Tx, *bls.PrivateKey) {
-	stamp := ts.RandStamp()
 	pub, prv := ts.RandBLSKeyPair()
 	proof := ts.RandProof()
-	trx := tx.NewSortitionTx(stamp, ts.RandHeight(), pub.ValidatorAddress(), proof)
+	trx := tx.NewSortitionTx(ts.RandHeight(), pub.ValidatorAddress(), proof)
 	ts.HelperSignTransaction(prv, trx)
 
 	return trx, prv
@@ -358,9 +350,8 @@ func (ts *TestSuite) GenerateTestSortitionTx() (*tx.Tx, *bls.PrivateKey) {
 
 // GenerateTestUnbondTx generates an unbond transaction for testing purposes.
 func (ts *TestSuite) GenerateTestUnbondTx() (*tx.Tx, *bls.PrivateKey) {
-	stamp := ts.RandStamp()
 	pub, prv := ts.RandBLSKeyPair()
-	trx := tx.NewUnbondTx(stamp, ts.RandHeight(), pub.ValidatorAddress(), "test unbond-tx")
+	trx := tx.NewUnbondTx(ts.RandHeight(), pub.ValidatorAddress(), "test unbond-tx")
 	ts.HelperSignTransaction(prv, trx)
 
 	return trx, prv
@@ -368,9 +359,8 @@ func (ts *TestSuite) GenerateTestUnbondTx() (*tx.Tx, *bls.PrivateKey) {
 
 // GenerateTestWithdrawTx generates a withdraw transaction for testing purposes.
 func (ts *TestSuite) GenerateTestWithdrawTx() (*tx.Tx, *bls.PrivateKey) {
-	stamp := ts.RandStamp()
 	pub, prv := ts.RandBLSKeyPair()
-	trx := tx.NewWithdrawTx(stamp, ts.RandHeight(), pub.ValidatorAddress(), ts.RandAccAddress(),
+	trx := tx.NewWithdrawTx(ts.RandHeight(), pub.ValidatorAddress(), ts.RandAccAddress(),
 		ts.RandInt64(1000*1e10), ts.RandInt64(1*1e10), "test withdraw-tx")
 	ts.HelperSignTransaction(prv, trx)
 

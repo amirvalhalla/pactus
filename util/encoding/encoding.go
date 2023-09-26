@@ -188,8 +188,6 @@ func ReadElement(r io.Reader, element interface{}) error {
 		*e = int64(rv)
 	case *uint64:
 		err = binarySerializer.Uint64(r, e)
-	case *hash.Stamp:
-		_, err = io.ReadFull(r, e[:])
 	case *hash.Hash:
 		_, err = io.ReadFull(r, e[:])
 	default:
@@ -235,8 +233,6 @@ func WriteElement(w io.Writer, element interface{}) error {
 		err = binarySerializer.PutUint64(w, uint64(e))
 	case uint64:
 		err = binarySerializer.PutUint64(w, e)
-	case *hash.Stamp:
-		_, err = w.Write(e[:])
 	case *hash.Hash:
 		_, err = w.Write(e[:])
 	default:

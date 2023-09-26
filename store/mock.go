@@ -73,6 +73,11 @@ func (m *MockStore) PublicKey(addr crypto.Address) (*bls.PublicKey, error) {
 			}
 		}
 	}
+	for _, val := range m.Validators {
+		if val.Address() == addr {
+			return val.PublicKey(), nil
+		}
+	}
 	return nil, ErrNotFound
 }
 
@@ -209,16 +214,6 @@ func (m *MockStore) LastCertificate() (uint32, *certificate.Certificate) {
 		return 0, nil
 	}
 	return m.LastHeight, m.LastCert
-}
-
-func (m *MockStore) RecentBlockByStamp(stamp hash.Stamp) (uint32, *block.Block) {
-	for h, b := range m.Blocks {
-		if b.Stamp().EqualsTo(stamp) {
-			return h, b
-		}
-	}
-
-	return 0, nil
 }
 
 func (m *MockStore) WriteBatch() error {
