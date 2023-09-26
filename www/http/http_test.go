@@ -6,9 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/pactus-project/pactus/crypto/bls"
-
 	"github.com/pactus-project/pactus/consensus"
+	"github.com/pactus-project/pactus/crypto/bls"
 	"github.com/pactus-project/pactus/state"
 	"github.com/pactus-project/pactus/sync"
 	"github.com/pactus-project/pactus/util/testsuite"

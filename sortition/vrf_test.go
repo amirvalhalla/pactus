@@ -62,8 +62,7 @@ func TestRandomUint64(t *testing.T) {
 		}
 		if numHits > maxHits {
 			str := fmt.Sprintf(badRNG, numHits, watermark, tries, maxHits)
-			t.Errorf("Random Uint64 iteration %d failed - %v %v", i,
-				str, numHits)
+			t.Errorf("Random Uint64 iteration %d failed - %v", i, str)
 			return
 		}
 	}

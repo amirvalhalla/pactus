@@ -15,13 +15,13 @@ import (
 )
 
 //
-// Deterministic Account Hierarchy
+// Deterministic Hierarchy derivation path
 //
 // Specification
 //
 // We define the following 4 levels in BIP32 path:
 //
-// m / purpose' / coin_type' / account / use
+// m / purpose' / coin_type' / address_type' / address_index
 //
 // Where:
 //   `'` Apostrophe in the path indicates that BIP32 hardened derivation is used.
@@ -29,21 +29,11 @@ import (
 //   `/` Separates the tree into depths, thus i / j signifies that j is a child of i
 //   `purpose` is set to 12381 which is the name of the new curve (BLS12-381).
 //   `coin_type` is set 21888 for Mainnet, 21777 for Testnet
-//   `account` is a field that provides the ability for a user to have distinct sets of keys.
-//   `use` is set to zero.
+//   `address_type` determine the type of address
+//   `address_index` is a sequential number and increase when a new address is derived.
 //
 // References:
-// BIP-44: https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
-// EIP-2334: https://eips.ethereum.org/EIPS/eip-2334
-
-// type AddressInfo struct {
-// 	Address       string
-// 	Label         string
-// 	Pub           crypto.PublicKey
-// 	Path          hdkeychain.Path
-// 	Imported      bool
-// 	ImportedIndex int
-// }
+// PIP-8: https://pips.pactus.org/PIPs/pip-8
 
 const (
 	TypeFull     = int(1)
@@ -51,21 +41,21 @@ const (
 )
 
 type AddressInfo struct {
-	Address   string
-	PublicKey string
-	Label     string
-	Path      string
+	Address   string `json:"address"`    // Address in the wallet
+	PublicKey string `json:"public_key"` // Public key associated with the address
+	Label     string `json:"label"`      // Label for the address
+	Path      string `json:"path"`       // Path for the address
 }
 
 const PurposeBLS12381 = uint32(12381)
 
 type Vault struct {
-	Type      int                    `json:"type"`      // Wallet type: 1: Full keys, 2: Neutered
+	Type      int                    `json:"type"`      // Wallet type. 1: Full keys, 2: Neutered
 	CoinType  uint32                 `json:"coin_type"` // Coin type: 21888 for Mainnet, 21777 for Testnet
-	Addresses map[string]AddressInfo `json:"addresses"` //
-	Encrypter encrypter.Encrypter    `json:"encrypter"` //
-	KeyStore  string                 `json:"key_store"` //
-	Purposes  purposes               `json:"purposes"`  //
+	Addresses map[string]AddressInfo `json:"addresses"` // All addresses that are stored in the wallet
+	Encrypter encrypter.Encrypter    `json:"encrypter"` // Encryption algorithm
+	KeyStore  string                 `json:"key_store"` // KeyStore that stores the secrets and encrypts using Encrypter
+	Purposes  purposes               `json:"purposes"`  // Contains Purpose 12381 for BLS signature
 }
 
 type keyStore struct {
@@ -86,10 +76,10 @@ type purposes struct {
 }
 
 type purposeBLS struct {
-	XPubValidator      string `json:"xpub_account"`         // Extended public key for account:   m/12381'/21888/1'/0
-	XPubAccount        string `json:"xpub_validator"`       // Extended public key for validator: m/12381'/21888/2'/0
-	NextAccountIndex   uint32 `json:"next_account_index"`   // Index of last derived account
-	NextValidatorIndex uint32 `json:"next_validator_index"` // Index of last derived validator
+	XPubValidator      string `json:"xpub_account"`         // Extended public key for account: m/12381'/21888/1'/0
+	XPubAccount        string `json:"xpub_validator"`       // Extended public key for validator: m/12381'/218
+	NextAccountIndex   uint32 `json:"next_account_index"`   // Index of next derived account
+	NextValidatorIndex uint32 `json:"next_validator_index"` // Index of next derived validator
 }
 
 func CreateVaultFromMnemonic(mnemonic string, coinType uint32) (*Vault, error) {
@@ -396,7 +386,6 @@ func (v *Vault) NewValidatorAddress(label string) (string, error) {
 }
 
 // TODO change structure of AddressInfo to more informativelay object
-
 // AddressInfo like it can return bls.PublicKey instead of string.
 func (v *Vault) AddressInfo(addr string) *AddressInfo {
 	info, ok := v.Addresses[addr]
@@ -409,14 +398,14 @@ func (v *Vault) AddressInfo(addr string) *AddressInfo {
 			return nil
 		}
 
-		var xFub string
+		var xPub string
 		if addr.IsAccountAddress() {
-			xFub = v.Purposes.PurposeBLS.XPubAccount
+			xPub = v.Purposes.PurposeBLS.XPubAccount
 		} else if addr.IsValidatorAddress() {
-			xFub = v.Purposes.PurposeBLS.XPubValidator
+			xPub = v.Purposes.PurposeBLS.XPubValidator
 		}
 
-		ext, err := hdkeychain.NewKeyFromString(xFub)
+		ext, err := hdkeychain.NewKeyFromString(xPub)
 		if err != nil {
 			return nil
 		}
@@ -458,10 +447,6 @@ func (v *Vault) Mnemonic(password string) (string, error) {
 }
 
 func (v *Vault) decryptKeyStore(password string) (*keyStore, error) {
-	if v.IsNeutered() {
-		return nil, ErrNeutered
-	}
-
 	keyStoreData, err := v.Encrypter.Decrypt(v.KeyStore, password)
 	if err != nil {
 		return nil, err
@@ -477,10 +462,6 @@ func (v *Vault) decryptKeyStore(password string) (*keyStore, error) {
 }
 
 func (v *Vault) encryptKeyStore(keyStore *keyStore, password string) error {
-	if v.IsNeutered() {
-		return ErrNeutered
-	}
-
 	keyStoreData, err := json.Marshal(keyStore)
 	if err != nil {
 		return err

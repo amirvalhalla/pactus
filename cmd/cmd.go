@@ -457,8 +457,7 @@ func makeLocalGenesis(w wallet.Wallet) *genesis.Genesis {
 	for i := 0; i < 4; i++ {
 		info := w.AddressInfo(w.AddressInfos()[i].Address)
 		pub, _ := bls.PublicKeyFromString(info.PublicKey)
-		vals[i] = validator.NewValidator(
-			pub, int32(i))
+		vals[i] = validator.NewValidator(pub, int32(i))
 	}
 
 	// create genesis

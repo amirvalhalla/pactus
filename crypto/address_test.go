@@ -148,12 +148,12 @@ func TestAddressEncoding(t *testing.T) {
 			crypto.InvalidAddressTypeError(3),
 		},
 		{
-			0,
+			21,
 			"0100",
 			io.ErrUnexpectedEOF,
 		},
 		{
-			0,
+			21,
 			"01000102030405060708090a0b0c0d0e0f000102",
 			io.ErrUnexpectedEOF,
 		},
@@ -176,6 +176,7 @@ func TestAddressEncoding(t *testing.T) {
 		err := addr.Decode(r)
 		if test.err != nil {
 			assert.ErrorIs(t, test.err, err, "test %v: error not matched", no)
+			assert.Equal(t, addr.SerializeSize(), test.size, "test %v invalid size", no)
 		} else {
 			assert.NoError(t, err, "test %v expected no error", no)
 			assert.Equal(t, addr.SerializeSize(), test.size, "test %v invalid size", no)
