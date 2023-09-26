@@ -19,7 +19,8 @@ service Blockchain {
   rpc GetValidatorByNumber(GetValidatorByNumberRequest)
       returns (GetValidatorResponse);
   rpc GetValidatorAddresses(GetValidatorAddressesRequest)
-      returns(GetValidatorAddressesResponse);
+      returns (GetValidatorAddressesResponse);
+  rpc GetPublicKey(GetPublicKeyRequest) returns (GetPublicKeyResponse);
 }
 
 message GetAccountRequest { string address = 1; }
@@ -35,6 +36,10 @@ message GetValidatorRequest { string address = 1; }
 message GetValidatorByNumberRequest { int32 number = 1; }
 
 message GetValidatorResponse { ValidatorInfo validator = 1; }
+
+message GetPublicKeyRequest { string address = 1; }
+
+message GetPublicKeyResponse { string public_key = 1; }
 
 message GetBlockRequest {
   uint32 height = 1;
@@ -73,9 +78,7 @@ message GetBlockchainInfoResponse {
 
 message GetConsensusInfoRequest {}
 
-message GetConsensusInfoResponse {
-  repeated ConsensusInfo instances = 1;
-}
+message GetConsensusInfoResponse { repeated ConsensusInfo instances = 1; }
 
 message ValidatorInfo {
   bytes hash = 1;

@@ -5,7 +5,6 @@ import (
 
 	"github.com/pactus-project/pactus/crypto"
 	"github.com/pactus-project/pactus/crypto/bls"
-	"github.com/pactus-project/pactus/crypto/hash"
 	"github.com/pactus-project/pactus/sortition"
 	"github.com/pactus-project/pactus/store"
 	"github.com/pactus-project/pactus/types/account"
@@ -18,7 +17,7 @@ import (
 type testData struct {
 	*testsuite.TestSuite
 
-	signers []crypto.Signer
+	valKeys []*bls.ValidatorKey
 	store   *store.MockStore
 	sandbox *sandbox
 }
@@ -27,42 +26,42 @@ func setup(t *testing.T) *testData {
 	t.Helper()
 
 	ts := testsuite.NewTestSuite(t)
-	store := store.MockingStore(ts)
+	mockStore := store.MockingStore(ts)
 	params := param.DefaultParams()
 	params.TransactionToLiveInterval = 64
 
-	committee, signers := ts.GenerateTestCommittee(21)
+	committee, valKeys := ts.GenerateTestCommittee(21)
 	acc := account.NewAccount(0)
 	acc.AddToBalance(21 * 1e14)
-	store.UpdateAccount(crypto.TreasuryAddress, acc)
+	mockStore.UpdateAccount(crypto.TreasuryAddress, acc)
 
 	totalPower := int64(0)
 	for _, val := range committee.Validators() {
-		// For testing purpose we create some test accounts first.
+		// For testing purpose, we create some test accounts first.
 		// Account number is the validator number plus one,
 		// since account #0 is the Treasury account.
 		acc := account.NewAccount(val.Number() + 1)
-		store.UpdateValidator(val)
-		store.UpdateAccount(val.Address(), acc)
+		mockStore.UpdateValidator(val)
+		mockStore.UpdateAccount(val.Address(), acc)
 
 		totalPower += val.Power()
 	}
 
 	lastHeight := uint32(21)
 	for i := uint32(1); i < lastHeight; i++ {
-		b := ts.GenerateTestBlock(nil)
+		b := ts.GenerateTestBlock()
 		c := ts.GenerateTestCertificate()
-		store.SaveBlock(i, b, c)
+		mockStore.SaveBlock(i, b, c)
 	}
-	sandbox := NewSandbox(store.LastHeight,
-		store, params, committee, totalPower).(*sandbox)
+	sandbox := NewSandbox(mockStore.LastHeight,
+		mockStore, params, committee, totalPower).(*sandbox)
 	assert.Equal(t, sandbox.CurrentHeight(), lastHeight)
 	assert.Equal(t, sandbox.Params(), params)
 
 	return &testData{
 		TestSuite: ts,
-		signers:   signers,
-		store:     store,
+		valKeys:   valKeys,
+		store:     mockStore,
 		sandbox:   sandbox,
 	}
 }
@@ -71,7 +70,7 @@ func TestAccountChange(t *testing.T) {
 	td := setup(t)
 
 	t.Run("Should returns nil for invalid address", func(t *testing.T) {
-		invAddr := td.RandAddress()
+		invAddr := td.RandAccAddress()
 		assert.Nil(t, td.sandbox.Account(invAddr))
 
 		td.sandbox.IterateAccounts(func(_ crypto.Address, _ *account.Account, _ bool) {
@@ -80,8 +79,7 @@ func TestAccountChange(t *testing.T) {
 	})
 
 	t.Run("Retrieve an account from store and update it", func(t *testing.T) {
-		acc, signer := td.GenerateTestAccount(td.RandInt32(10000))
-		addr := signer.Address()
+		acc, addr := td.GenerateTestAccount(td.RandInt32(10000))
 		bal := acc.Balance()
 		td.store.UpdateAccount(addr, acc)
 
@@ -117,7 +115,7 @@ func TestAccountChange(t *testing.T) {
 	})
 
 	t.Run("Make new account", func(t *testing.T) {
-		addr := td.RandAddress()
+		addr := td.RandAccAddress()
 		acc := td.sandbox.MakeNewAccount(addr)
 
 		acc.AddToBalance(1)
@@ -156,7 +154,7 @@ func TestValidatorChange(t *testing.T) {
 	td := setup(t)
 
 	t.Run("Should returns nil for invalid address", func(t *testing.T) {
-		invAddr := td.RandAddress()
+		invAddr := td.RandAccAddress()
 		assert.Nil(t, td.sandbox.Validator(invAddr))
 
 		td.sandbox.IterateValidators(func(_ *validator.Validator, _ bool, _ bool) {
@@ -227,10 +225,10 @@ func TestTotalAccountCounter(t *testing.T) {
 	td := setup(t)
 
 	t.Run("Should update total account counter", func(t *testing.T) {
-		assert.Equal(t, td.store.TotalAccounts(), int32(len(td.signers)+1))
+		assert.Equal(t, td.store.TotalAccounts(), int32(len(td.valKeys)+1))
 
-		addr1 := td.RandAddress()
-		addr2 := td.RandAddress()
+		addr1 := td.RandAccAddress()
+		addr2 := td.RandAccAddress()
 		acc := td.sandbox.MakeNewAccount(addr1)
 		assert.Equal(t, acc.Number(), int32(td.sandbox.Committee().Size()+1))
 		acc2 := td.sandbox.MakeNewAccount(addr2)
@@ -279,8 +277,8 @@ func TestCreateDuplicated(t *testing.T) {
 				t.Errorf("The code did not panic")
 			}
 		}()
-		pub := td.signers[3].PublicKey()
-		td.sandbox.MakeNewValidator(pub.(*bls.PublicKey))
+		pub := td.valKeys[3].PublicKey()
+		td.sandbox.MakeNewValidator(pub)
 	})
 }
 
@@ -293,8 +291,8 @@ func TestUpdateFromOutsideTheSandbox(t *testing.T) {
 				t.Errorf("The code did not panic")
 			}
 		}()
-		acc, signer := td.GenerateTestAccount(td.RandInt32(0))
-		td.sandbox.UpdateAccount(signer.Address(), acc)
+		acc, addr := td.GenerateTestAccount(td.RandInt32(0))
+		td.sandbox.UpdateAccount(addr, acc)
 	})
 
 	t.Run("Try update a validator from outside the sandbox, Should panic", func(t *testing.T) {
@@ -312,7 +310,7 @@ func TestAccountDeepCopy(t *testing.T) {
 	td := setup(t)
 
 	t.Run("non existing account", func(t *testing.T) {
-		addr := td.RandAddress()
+		addr := td.RandAccAddress()
 		acc := td.sandbox.MakeNewAccount(addr)
 		acc.AddToBalance(1)
 
@@ -344,7 +342,7 @@ func TestValidatorDeepCopy(t *testing.T) {
 		val := td.sandbox.MakeNewValidator(pub)
 		val.AddToStake(1)
 
-		assert.NotEqual(t, td.sandbox.Validator(pub.Address()), val)
+		assert.NotEqual(t, td.sandbox.Validator(pub.ValidatorAddress()), val)
 	})
 
 	val0, _ := td.store.ValidatorByNumber(0)
@@ -362,20 +360,6 @@ func TestValidatorDeepCopy(t *testing.T) {
 
 		assert.NotEqual(t, td.sandbox.Validator(addr), val)
 	})
-}
-
-func TestRecentBlockByStamp(t *testing.T) {
-	td := setup(t)
-
-	h, b := td.sandbox.RecentBlockByStamp(td.RandStamp())
-	assert.Zero(t, h)
-	assert.Nil(t, b)
-
-	lastHeight, _ := td.store.LastCertificate()
-	lastHash := td.sandbox.store.BlockHash(lastHeight)
-	h, b = td.sandbox.RecentBlockByStamp(lastHash.Stamp())
-	assert.Equal(t, h, lastHeight)
-	assert.Equal(t, b.Hash(), lastHash)
 }
 
 func TestPowerDelta(t *testing.T) {
@@ -396,18 +380,18 @@ func TestVerifyProof(t *testing.T) {
 
 	// Try to evaluate a valid sortition
 	var validProof sortition.Proof
-	var validStamp hash.Stamp
+	var validLockTime uint32
 	var validVal *validator.Validator
-	for i := lastHeight; i > 0; i-- {
-		block := td.store.Blocks[i]
-		for i, signer := range td.signers {
+	for height := lastHeight; height > 0; height-- {
+		block := td.store.Blocks[height]
+		for i, valKey := range td.valKeys {
 			ok, proof := sortition.EvaluateSortition(
-				block.Header().SortitionSeed(), signer,
+				block.Header().SortitionSeed(), valKey.PrivateKey(),
 				td.sandbox.totalPower, vals[i].Power())
 
 			if ok {
 				validProof = proof
-				validStamp = block.Stamp()
+				validLockTime = height
 				validVal = vals[i]
 			}
 		}
@@ -415,19 +399,17 @@ func TestVerifyProof(t *testing.T) {
 
 	t.Run("invalid proof", func(t *testing.T) {
 		invalidProof := td.RandProof()
-		assert.False(t, td.sandbox.VerifyProof(validStamp, invalidProof, validVal))
+		assert.False(t, td.sandbox.VerifyProof(validLockTime, invalidProof, validVal))
 	})
-	t.Run("invalid stamp", func(t *testing.T) {
-		invalidStamp := td.RandStamp()
-		assert.False(t, td.sandbox.VerifyProof(invalidStamp, validProof, validVal))
+	t.Run("invalid height", func(t *testing.T) {
+		assert.False(t, td.sandbox.VerifyProof(td.RandHeight(), validProof, validVal))
 	})
 
-	t.Run("genesis stamp", func(t *testing.T) {
-		invalidStamp := hash.UndefHash.Stamp()
-		assert.False(t, td.sandbox.VerifyProof(invalidStamp, validProof, validVal))
+	t.Run("genesis block height", func(t *testing.T) {
+		assert.False(t, td.sandbox.VerifyProof(0, validProof, validVal))
 	})
 
 	t.Run("Ok", func(t *testing.T) {
-		assert.True(t, td.sandbox.VerifyProof(validStamp, validProof, validVal))
+		assert.True(t, td.sandbox.VerifyProof(validLockTime, validProof, validVal))
 	})
 }

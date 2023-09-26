@@ -17,7 +17,7 @@ func TestHashFromString(t *testing.T) {
 	hash2, err := hash.FromString(hash1.String())
 	assert.Contains(t, strings.ToUpper(hash1.String()), hash1.ShortString())
 	assert.NoError(t, err)
-	assert.True(t, hash1.EqualsTo(hash2))
+	assert.Equal(t, hash1, hash2)
 
 	_, err = hash.FromString("")
 	assert.Error(t, err)
@@ -45,10 +45,6 @@ func TestHash256(t *testing.T) {
 	h1 := hash.Hash256(data)
 	expected, _ := hex.DecodeString("12b38977f2d67f06f0c0cd54aaf7324cf4fee184398ea33d295e8d1543c2ee1a")
 	assert.Equal(t, h1, expected)
-
-	h2, _ := hash.FromBytes(h1)
-	stamp, _ := hash.StampFromString("12b38977")
-	assert.Equal(t, h2.Stamp(), stamp)
 }
 
 func TestHash160(t *testing.T) {

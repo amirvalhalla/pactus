@@ -46,7 +46,6 @@ func TestGetTransaction(t *testing.T) {
 		assert.Equal(t, uint32(0x1), res.BlockHeight)
 		assert.Equal(t, testBlock.Header().UnixTime(), res.BlockTime)
 		assert.Equal(t, trx1.ID().Bytes(), res.Transaction.Id)
-		assert.Equal(t, trx1.Stamp().Bytes(), res.Transaction.Stamp)
 		assert.Equal(t, trx1.Fee(), res.Transaction.Fee)
 		assert.Equal(t, trx1.Memo(), res.Transaction.Memo)
 		assert.Equal(t, trx1.Payload().Type(), payload.Type(res.Transaction.PayloadType))
@@ -54,8 +53,8 @@ func TestGetTransaction(t *testing.T) {
 		assert.Equal(t, trx1.Signature().Bytes(), res.Transaction.Signature)
 		assert.Equal(t, trx1.PublicKey().String(), res.Transaction.PublicKey)
 		assert.Equal(t, trx1.Payload().(*payload.TransferPayload).Amount, pld.Transfer.Amount)
-		assert.Equal(t, trx1.Payload().(*payload.TransferPayload).Sender.String(), pld.Transfer.Sender)
-		assert.Equal(t, trx1.Payload().(*payload.TransferPayload).Receiver.String(), pld.Transfer.Receiver)
+		assert.Equal(t, trx1.Payload().(*payload.TransferPayload).From.String(), pld.Transfer.Sender)
+		assert.Equal(t, trx1.Payload().(*payload.TransferPayload).To.String(), pld.Transfer.Receiver)
 	})
 
 	t.Run("Should return nil value because transaction id is invalid", func(t *testing.T) {
@@ -85,8 +84,8 @@ func TestSendRawTransaction(t *testing.T) {
 	})
 	t.Run("Should fail, transaction with invalid signature", func(t *testing.T) {
 		trx, _ := ts.GenerateTestTransferTx()
-		_, signer := ts.GenerateTestTransferTx()
-		trx.SetSignature(signer.SignData(trx.SignBytes()))
+		_, pValKey := ts.GenerateTestTransferTx()
+		trx.SetSignature(pValKey.Sign(trx.SignBytes()))
 		data, _ := trx.Bytes()
 		res, err := client.SendRawTransaction(tCtx, &pactus.SendRawTransactionRequest{Data: data})
 		assert.Error(t, err)

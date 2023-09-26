@@ -68,7 +68,7 @@ func (s *CommittedTx) ToTx() (*tx.Tx, error) {
 		pub, err := s.PublicKey(trx.Payload().Signer())
 		if err != nil {
 			return nil, PublicKeyNotFoundError{
-				Address: trx.Payload().Signer(),
+				Address: trx.PublicKey().(*bls.PublicKey).ValidatorAddress(),
 			}
 		}
 		trx.SetPublicKey(pub)
@@ -81,7 +81,6 @@ type Reader interface {
 	Block(height uint32) (*CommittedBlock, error)
 	BlockHeight(hash hash.Hash) uint32
 	BlockHash(height uint32) hash.Hash
-	RecentBlockByStamp(stamp hash.Stamp) (uint32, *block.Block)
 	Transaction(id tx.ID) (*CommittedTx, error)
 	AnyRecentTransaction(id tx.ID) bool
 	PublicKey(addr crypto.Address) (*bls.PublicKey, error)

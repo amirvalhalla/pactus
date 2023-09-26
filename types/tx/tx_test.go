@@ -2,6 +2,7 @@ package tx_test
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -89,8 +90,8 @@ func TestBasicCheck(t *testing.T) {
 	ts := testsuite.NewTestSuite(t)
 
 	t.Run("LockTime is not defined", func(t *testing.T) {
-		trx := tx.NewTransferTx(ts.RandStamp(), 0,
-			ts.RandAddress(), ts.RandAddress(), ts.RandInt64(1e9), ts.RandInt64(1e6), "")
+		trx := tx.NewTransferTx(0,
+			ts.RandAccAddress(), ts.RandAccAddress(), ts.RandInt64(1e9), ts.RandInt64(1e6), "")
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
@@ -101,8 +102,8 @@ func TestBasicCheck(t *testing.T) {
 	t.Run("Big memo, Should returns error", func(t *testing.T) {
 		bigMemo := strings.Repeat("a", 65)
 
-		trx := tx.NewTransferTx(ts.RandStamp(), ts.RandHeight(),
-			ts.RandAddress(), ts.RandAddress(), ts.RandInt64(1e9), ts.RandInt64(1e6), bigMemo)
+		trx := tx.NewTransferTx(ts.RandHeight(),
+			ts.RandAccAddress(), ts.RandAccAddress(), ts.RandInt64(1e9), ts.RandInt64(1e6), bigMemo)
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
@@ -111,20 +112,20 @@ func TestBasicCheck(t *testing.T) {
 	})
 
 	t.Run("Invalid payload, Should returns error", func(t *testing.T) {
-		invAddr := ts.RandAddress()
-		invAddr[0] = 2
-		trx := tx.NewTransferTx(ts.RandStamp(), ts.RandHeight(),
-			ts.RandAddress(), invAddr, 1e9, ts.RandInt64(1e6), "invalid address")
+		invAddr := ts.RandAccAddress()
+		invAddr[0] = 3
+		trx := tx.NewTransferTx(ts.RandHeight(),
+			ts.RandAccAddress(), invAddr, 1e9, ts.RandInt64(1e6), "invalid address")
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
-			Reason: "invalid payload: invalid address: invalid address type",
+			Reason: "invalid payload: payload basic check failed: receiver is not an account address",
 		})
 	})
 
 	t.Run("Invalid amount", func(t *testing.T) {
-		trx := tx.NewTransferTx(ts.RandStamp(), ts.RandHeight(),
-			ts.RandAddress(), ts.RandAddress(), -1, 1, "invalid amount")
+		trx := tx.NewTransferTx(ts.RandHeight(),
+			ts.RandAccAddress(), ts.RandAccAddress(), -1, 1, "invalid amount")
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
@@ -133,8 +134,8 @@ func TestBasicCheck(t *testing.T) {
 	})
 
 	t.Run("Invalid amount", func(t *testing.T) {
-		trx := tx.NewTransferTx(ts.RandStamp(), ts.RandHeight(),
-			ts.RandAddress(), ts.RandAddress(), (42*1e15)+1, 1, "invalid amount")
+		trx := tx.NewTransferTx(ts.RandHeight(),
+			ts.RandAccAddress(), ts.RandAccAddress(), (42*1e15)+1, 1, "invalid amount")
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
@@ -143,8 +144,8 @@ func TestBasicCheck(t *testing.T) {
 	})
 
 	t.Run("Invalid fee", func(t *testing.T) {
-		trx := tx.NewTransferTx(ts.RandStamp(), ts.RandHeight(),
-			ts.RandAddress(), ts.RandAddress(), 1, -1, "invalid fee")
+		trx := tx.NewTransferTx(ts.RandHeight(),
+			ts.RandAccAddress(), ts.RandAccAddress(), 1, -1, "invalid fee")
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
@@ -153,8 +154,8 @@ func TestBasicCheck(t *testing.T) {
 	})
 
 	t.Run("Invalid fee", func(t *testing.T) {
-		trx := tx.NewTransferTx(ts.RandStamp(), ts.RandHeight(),
-			ts.RandAddress(), ts.RandAddress(), 1, (42*1e15)+1, "invalid fee")
+		trx := tx.NewTransferTx(ts.RandHeight(),
+			ts.RandAccAddress(), ts.RandAccAddress(), 1, (42*1e15)+1, "invalid fee")
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
@@ -163,14 +164,15 @@ func TestBasicCheck(t *testing.T) {
 	})
 
 	t.Run("Invalid signer address", func(t *testing.T) {
-		signer := ts.RandSigner()
-		trx := tx.NewTransferTx(ts.RandStamp(), ts.RandHeight(),
-			ts.RandAddress(), ts.RandAddress(), 1, 1, "invalid signer")
-		signer.SignMsg(trx)
+		valKey := ts.RandValKey()
+		trx := tx.NewTransferTx(ts.RandHeight(),
+			ts.RandAccAddress(), ts.RandAccAddress(), 1, 1, "invalid valKey")
+		ts.HelperSignTransaction(valKey.PrivateKey(), trx)
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
-			Reason: "invalid address: invalid address",
+			Reason: fmt.Sprintf("address mismatch: expected %s, got %s",
+				valKey.PublicKey().AccountAddress(), trx.Payload().Signer()),
 		})
 	})
 
@@ -178,7 +180,6 @@ func TestBasicCheck(t *testing.T) {
 		d := ts.DecodingHex(
 			"00" + // Flags
 				"02" + // Version
-				"a1b2c3d4" + // Stamp
 				"01020304" + // LockTime
 				"01" + // Fee
 				"00" + // Memo
@@ -203,7 +204,6 @@ func TestInvalidPayloadType(t *testing.T) {
 	d := ts.DecodingHex(
 		"00" + // Flags
 			"01" + // Version
-			"a1b2c3d4" + // Stamp
 			"01020300" + // LockTime
 			"01" + // Fee
 			"00" + // Memo
@@ -224,7 +224,7 @@ func TestSubsidyTx(t *testing.T) {
 	pub, prv := ts.RandBLSKeyPair()
 
 	t.Run("Has signature", func(t *testing.T) {
-		trx := tx.NewSubsidyTx(ts.RandStamp(), ts.RandHeight(), pub.Address(), 2500, "subsidy")
+		trx := tx.NewSubsidyTx(ts.RandHeight(), pub.AccountAddress(), 2500, "subsidy")
 		sig := prv.Sign(trx.SignBytes())
 		trx.SetSignature(sig)
 
@@ -235,7 +235,7 @@ func TestSubsidyTx(t *testing.T) {
 	})
 
 	t.Run("Has public key", func(t *testing.T) {
-		trx := tx.NewSubsidyTx(ts.RandStamp(), ts.RandHeight(), pub.Address(), 2500, "subsidy")
+		trx := tx.NewSubsidyTx(ts.RandHeight(), pub.AccountAddress(), 2500, "subsidy")
 		trx.SetPublicKey(pub)
 
 		err := trx.BasicCheck()
@@ -245,7 +245,7 @@ func TestSubsidyTx(t *testing.T) {
 	})
 
 	t.Run("Strip public key", func(t *testing.T) {
-		trx := tx.NewSubsidyTx(ts.RandStamp(), ts.RandHeight(), pub.Address(), 2500, "subsidy")
+		trx := tx.NewSubsidyTx(ts.RandHeight(), pub.AccountAddress(), 2500, "subsidy")
 		trx.StripPublicKey()
 
 		err := trx.BasicCheck()
@@ -300,13 +300,14 @@ func TestInvalidSignature(t *testing.T) {
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
-			Reason: "invalid address: invalid address",
+			Reason: fmt.Sprintf("address mismatch: expected %s, got %s", pbInv.AccountAddress(), trx.Payload().Signer()),
 		})
 	})
 
 	t.Run("Invalid sign Bytes", func(t *testing.T) {
-		trx0, _ := ts.GenerateTestUnbondTx()
-		trx := tx.NewUnbondTx(trx0.Stamp(), trx0.LockTime(), trx0.PublicKey().Address(),
+		trx0, pValKey := ts.GenerateTestUnbondTx()
+		valKey := bls.NewValidatorKey(pValKey)
+		trx := tx.NewUnbondTx(trx0.LockTime(), valKey.Address(),
 			"invalidate signature")
 		trx.SetPublicKey(trx0.PublicKey())
 		trx.SetSignature(trx0.Signature())
@@ -330,11 +331,13 @@ func TestInvalidSignature(t *testing.T) {
 
 	t.Run("Zero public key", func(t *testing.T) {
 		trx, _ := ts.GenerateTestTransferTx()
-		trx.SetPublicKey(&bls.PublicKey{})
+		zeroPubKey := &bls.PublicKey{}
+		trx.SetPublicKey(zeroPubKey)
 
 		err := trx.BasicCheck()
 		assert.ErrorIs(t, err, tx.BasicCheckError{
-			Reason: "invalid address: invalid address",
+			Reason: fmt.Sprintf("address mismatch: expected %s, got %s",
+				zeroPubKey.AccountAddress().String(), trx.Payload().Signer()),
 		})
 	})
 }
@@ -343,7 +346,6 @@ func TestSignBytes(t *testing.T) {
 	d, _ := hex.DecodeString(
 		"00" + // Flags
 			"01" + // Version
-			"a1b2c3d4" + // Stamp
 			"01020304" + // LockTime
 			"01" + // Fee
 			"00" + // Memo
@@ -355,7 +357,7 @@ func TestSignBytes(t *testing.T) {
 			"8d82fa4fcac04a3b565267685e90db1b01420285d2f8295683c138c092c209479983ba1591370778846681b7b558e061" + // PublicKey
 			"1776208c0718006311c84b4a113335c70d1f5c7c5dd93a5625c4af51c48847abd0b590c055306162d2a03ca1cbf7bcc1")
 
-	h, _ := hash.FromString("15669c24df9d6e0d2c3684144ab29d2a4cb7bc825eaf0a69651172055011dce7")
+	h, _ := hash.FromString("1a8cedbb2ffce29df63210f112afb1c0295b27e2162323bfc774068f0573388e")
 	trx, err := tx.FromBytes(d)
 	assert.NoError(t, err)
 	assert.Equal(t, trx.SerializeSize(), len(d))

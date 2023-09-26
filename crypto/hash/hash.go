@@ -66,18 +66,12 @@ func (h Hash) Bytes() []byte {
 	return h[:]
 }
 
-func (h Hash) Stamp() Stamp {
-	var stamp Stamp
-	copy(stamp[:], h[0:4])
-	return stamp
-}
-
 func (h Hash) ShortString() string {
 	return fmt.Sprintf("%X", h[:6])
 }
 
 func (h Hash) IsUndef() bool {
-	return h.EqualsTo(UndefHash)
+	return h == UndefHash
 }
 
 func (h Hash) BasicCheck() error {
@@ -86,8 +80,4 @@ func (h Hash) BasicCheck() error {
 	}
 
 	return nil
-}
-
-func (h Hash) EqualsTo(r Hash) bool {
-	return h == r
 }

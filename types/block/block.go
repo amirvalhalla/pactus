@@ -130,11 +130,8 @@ func (b *Block) Hash() hash.Hash {
 
 	h := hash.CalcHash(w.Bytes())
 	b.memorizedHash = &h
-	return h
-}
 
-func (b *Block) Stamp() hash.Stamp {
-	return b.Hash().Stamp()
+	return h
 }
 
 func (b *Block) String() string {
@@ -164,7 +161,6 @@ func (b *Block) UnmarshalCBOR(bs []byte) error {
 	return b.Decode(buf)
 }
 
-// Encode encodes the receiver to w.
 func (b *Block) Encode(w io.Writer) error {
 	if err := b.data.Header.Encode(w); err != nil {
 		return err

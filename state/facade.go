@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/pactus-project/pactus/crypto"
+	"github.com/pactus-project/pactus/crypto/bls"
 	"github.com/pactus-project/pactus/crypto/hash"
 	"github.com/pactus-project/pactus/genesis"
 	"github.com/pactus-project/pactus/store"
@@ -23,7 +24,7 @@ type Facade interface {
 	LastBlockTime() time.Time
 	LastCertificate() *certificate.Certificate
 	UpdateLastCertificate(lastCertificate *certificate.Certificate) error
-	ProposeBlock(consSigner crypto.Signer, rewardAddr crypto.Address, round int16) (*block.Block, error)
+	ProposeBlock(valKey *bls.ValidatorKey, rewardAddr crypto.Address, round int16) (*block.Block, error)
 	ValidateBlock(block *block.Block) error
 	CommitBlock(height uint32, block *block.Block, cert *certificate.Certificate) error
 	CommitteeValidators() []*validator.Validator
@@ -50,4 +51,5 @@ type Facade interface {
 	Params() param.Params
 	Close() error
 	CalculateFee(amount int64, payloadType payload.Type) (int64, error)
+	PublicKey(addr crypto.Address) (crypto.PublicKey, error)
 }

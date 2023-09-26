@@ -24,7 +24,7 @@ func setup(t *testing.T) *testData {
 	conf := &Config{
 		Path: util.TempDirPath(),
 	}
-	s, err := NewStore(conf, 21)
+	s, err := NewStore(conf)
 	require.NoError(t, err)
 
 	td := &testData{
@@ -42,7 +42,7 @@ func (td *testData) saveTestBlocks(t *testing.T, num int) {
 
 	lastHeight, _ := td.store.LastCertificate()
 	for i := 0; i < num; i++ {
-		b := td.GenerateTestBlock(nil)
+		b := td.GenerateTestBlock()
 		c := td.GenerateTestCertificate()
 
 		td.store.SaveBlock(lastHeight+uint32(i+1), b, c)
@@ -104,65 +104,6 @@ func TestRetrieveBlockAndTransactions(t *testing.T) {
 	}
 }
 
-func TestRecentBlockByStamp(t *testing.T) {
-	td := setup(t)
-
-	hash1 := td.store.BlockHash(1)
-
-	h, b := td.store.RecentBlockByStamp(hash.UndefHash.Stamp())
-	assert.Zero(t, h)
-	assert.Nil(t, b)
-
-	h, b = td.store.RecentBlockByStamp(hash1.Stamp())
-	assert.Equal(t, h, uint32(1))
-	assert.Equal(t, b.Hash(), hash1)
-
-	// Saving more blocks, blocks 11 to 22
-	td.saveTestBlocks(t, 12)
-	hash2 := td.store.BlockHash(2)
-	hash14 := td.store.BlockHash(14)
-	hash22 := td.store.BlockHash(22)
-
-	// First block should remove from the list
-	h, b = td.store.RecentBlockByStamp(hash1.Stamp())
-	assert.Zero(t, h)
-	assert.Nil(t, b)
-
-	h, b = td.store.RecentBlockByStamp(hash2.Stamp())
-	assert.Equal(t, h, uint32(2))
-	assert.Equal(t, b.Hash(), hash2)
-
-	h, b = td.store.RecentBlockByStamp(hash14.Stamp())
-	assert.Equal(t, h, uint32(14))
-	assert.Equal(t, b.Hash(), hash14)
-
-	h, b = td.store.RecentBlockByStamp(hash22.Stamp())
-	assert.Equal(t, h, uint32(22))
-	assert.Equal(t, b.Hash(), hash22)
-
-	// Reopen the store
-	td.store.Close()
-	s, _ := NewStore(td.store.config, 21)
-	td.store = s.(*store)
-
-	h, b = td.store.RecentBlockByStamp(hash2.Stamp())
-	assert.Equal(t, h, uint32(2))
-	assert.Equal(t, b.Hash(), hash2)
-
-	// Saving one more blocks, block 23
-	td.saveTestBlocks(t, 1)
-
-	// Second block should remove from the list
-	h, b = td.store.RecentBlockByStamp(hash2.Stamp())
-	assert.Zero(t, h)
-	assert.Nil(t, b)
-
-	// Genesis block
-	h, b = td.store.RecentBlockByStamp(hash.UndefHash.Stamp())
-	assert.Zero(t, h)
-	assert.Nil(t, b)
-}
-
 func TestIndexingPublicKeys(t *testing.T) {
 	td := setup(t)
 
@@ -173,10 +114,15 @@ func TestIndexingPublicKeys(t *testing.T) {
 		pub, found := td.store.PublicKey(addr)
 
 		assert.NoError(t, found)
-		assert.Equal(t, pub.Address(), addr)
+
+		if addr.IsAccountAddress() {
+			assert.Equal(t, pub.AccountAddress(), addr)
+		} else if addr.IsValidatorAddress() {
+			assert.Equal(t, pub.ValidatorAddress(), addr)
+		}
 	}
 
-	pub, found := td.store.PublicKey(td.RandAddress())
+	pub, found := td.store.PublicKey(td.RandValAddress())
 	assert.Error(t, found)
 	assert.Nil(t, pub)
 }

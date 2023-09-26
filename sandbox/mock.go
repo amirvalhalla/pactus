@@ -4,11 +4,9 @@ import (
 	"github.com/pactus-project/pactus/committee"
 	"github.com/pactus-project/pactus/crypto"
 	"github.com/pactus-project/pactus/crypto/bls"
-	"github.com/pactus-project/pactus/crypto/hash"
 	"github.com/pactus-project/pactus/sortition"
 	"github.com/pactus-project/pactus/store"
 	"github.com/pactus-project/pactus/types/account"
-	"github.com/pactus-project/pactus/types/block"
 	"github.com/pactus-project/pactus/types/param"
 	"github.com/pactus-project/pactus/types/tx"
 	"github.com/pactus-project/pactus/types/validator"
@@ -21,10 +19,10 @@ var _ Sandbox = &MockSandbox{}
 type MockSandbox struct {
 	ts *testsuite.TestSuite
 
-	TestParams           param.Params
-	TestStore            *store.MockStore
-	TestCommittee        committee.Committee
-	TestCommitteeSigners []crypto.Signer
+	TestParams    param.Params
+	TestStore     *store.MockStore
+	TestCommittee committee.Committee
+	// TestCommitteeSigners []crypto.Signer
 	TestAcceptSortition  bool
 	TestJoinedValidators map[crypto.Address]bool
 	TestCommittedTrxs    map[tx.ID]*tx.Tx
@@ -32,14 +30,14 @@ type MockSandbox struct {
 }
 
 func MockingSandbox(ts *testsuite.TestSuite) *MockSandbox {
-	committee, signers := ts.GenerateTestCommittee(7)
+	committee, _ := ts.GenerateTestCommittee(7)
 
 	sb := &MockSandbox{
-		ts:                   ts,
-		TestParams:           param.DefaultParams(),
-		TestStore:            store.MockingStore(ts),
-		TestCommittee:        committee,
-		TestCommitteeSigners: signers,
+		ts:            ts,
+		TestParams:    param.DefaultParams(),
+		TestStore:     store.MockingStore(ts),
+		TestCommittee: committee,
+		// TestCommitteeSigners: valKeys,
 		TestJoinedValidators: make(map[crypto.Address]bool),
 		TestCommittedTrxs:    make(map[tx.ID]*tx.Tx),
 	}
@@ -111,10 +109,6 @@ func (m *MockSandbox) Params() param.Params {
 	return m.TestParams
 }
 
-func (m *MockSandbox) RecentBlockByStamp(stamp hash.Stamp) (uint32, *block.Block) {
-	return m.TestStore.RecentBlockByStamp(stamp)
-}
-
 func (m *MockSandbox) IterateAccounts(consumer func(crypto.Address, *account.Account, bool)) {
 	m.TestStore.IterateAccounts(func(addr crypto.Address, acc *account.Account) bool {
 		consumer(addr, acc, true)
@@ -141,7 +135,7 @@ func (m *MockSandbox) PowerDelta() int64 {
 	return m.TestPowerDelta
 }
 
-func (m *MockSandbox) VerifyProof(hash.Stamp, sortition.Proof, *validator.Validator) bool {
+func (m *MockSandbox) VerifyProof(uint32, sortition.Proof, *validator.Validator) bool {
 	return m.TestAcceptSortition
 }
 

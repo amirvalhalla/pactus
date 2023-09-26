@@ -32,7 +32,6 @@ type Tx struct {
 type txData struct {
 	Flags     uint8
 	Version   uint8
-	Stamp     hash.Stamp
 	LockTime  uint32
 	Fee       int64
 	Memo      string
@@ -41,12 +40,11 @@ type txData struct {
 	PublicKey crypto.PublicKey
 }
 
-func NewTx(stamp hash.Stamp, lockTime uint32, pld payload.Payload, fee int64,
+func NewTx(lockTime uint32, pld payload.Payload, fee int64,
 	memo string,
 ) *Tx {
 	trx := &Tx{
 		data: txData{
-			Stamp:    stamp,
 			LockTime: lockTime,
 			Version:  versionLatest,
 			Payload:  pld,
@@ -72,10 +70,6 @@ func (tx *Tx) Version() uint8 {
 	return tx.data.Version & 0x0f
 }
 
-func (tx *Tx) Stamp() hash.Stamp {
-	return tx.data.Stamp
-}
-
 func (tx *Tx) LockTime() uint32 {
 	return tx.data.LockTime
 }
@@ -98,10 +92,6 @@ func (tx *Tx) PublicKey() crypto.PublicKey {
 
 func (tx *Tx) Signature() crypto.Signature {
 	return tx.data.Signature
-}
-
-func (tx *Tx) IsStamped() bool {
-	return true
 }
 
 func (tx *Tx) SetSignature(sig crypto.Signature) {
@@ -183,16 +173,19 @@ func (tx *Tx) checkSignature() error {
 				Reason: "no public key",
 			}
 		}
+
 		if tx.Signature() == nil {
 			return BasicCheckError{
 				Reason: "no signature",
 			}
 		}
+
 		if err := tx.PublicKey().VerifyAddress(tx.Payload().Signer()); err != nil {
 			return BasicCheckError{
-				Reason: fmt.Sprintf("invalid address: %s", err.Error()),
+				Reason: err.Error(),
 			}
 		}
+
 		bs := tx.SignBytes()
 		if err := tx.PublicKey().Verify(bs, tx.Signature()); err != nil {
 			return BasicCheckError{
@@ -234,7 +227,7 @@ func (tx *Tx) UnmarshalCBOR(bs []byte) error {
 
 // SerializeSize returns the number of bytes it would take to serialize the transaction.
 func (tx *Tx) SerializeSize() int {
-	n := 7 +
+	n := 3 + // one byte version, flag, payload type
 		4 + // for tx.LockTime
 		encoding.VarIntSerializeSize(uint64(tx.Fee())) +
 		encoding.VarStringSerializeSize(tx.Memo())
@@ -274,7 +267,7 @@ func (tx *Tx) Encode(w io.Writer) error {
 }
 
 func (tx *Tx) encodeWithNoSignatory(w io.Writer) error {
-	err := encoding.WriteElements(w, tx.data.Flags, tx.data.Version, tx.data.Stamp, tx.data.LockTime)
+	err := encoding.WriteElements(w, tx.data.Flags, tx.data.Version, tx.data.LockTime)
 	if err != nil {
 		return err
 	}
@@ -298,7 +291,7 @@ func (tx *Tx) encodeWithNoSignatory(w io.Writer) error {
 }
 
 func (tx *Tx) Decode(r io.Reader) error {
-	err := encoding.ReadElements(r, &tx.data.Flags, &tx.data.Version, &tx.data.Stamp, &tx.data.LockTime)
+	err := encoding.ReadElements(r, &tx.data.Flags, &tx.data.Version, &tx.data.LockTime)
 	if err != nil {
 		return err
 	}
@@ -365,9 +358,8 @@ func (tx *Tx) Decode(r io.Reader) error {
 }
 
 func (tx *Tx) String() string {
-	return fmt.Sprintf("{⌘ %v 🏵 %v %v}",
+	return fmt.Sprintf("{⌘ %v 🏵 %v}",
 		tx.ID().ShortString(),
-		tx.data.Stamp.String(),
 		tx.data.Payload.String())
 }
 
@@ -391,7 +383,7 @@ func (tx *Tx) ID() ID {
 
 func (tx *Tx) IsTransferTx() bool {
 	return tx.Payload().Type() == payload.TypeTransfer &&
-		!tx.data.Payload.Signer().EqualsTo(crypto.TreasuryAddress)
+		tx.Payload().Signer() != crypto.TreasuryAddress
 }
 
 func (tx *Tx) IsBondTx() bool {
@@ -400,7 +392,7 @@ func (tx *Tx) IsBondTx() bool {
 
 func (tx *Tx) IsSubsidyTx() bool {
 	return tx.Payload().Type() == payload.TypeTransfer &&
-		tx.data.Payload.Signer().EqualsTo(crypto.TreasuryAddress)
+		tx.Payload().Signer() == crypto.TreasuryAddress
 }
 
 func (tx *Tx) IsSortitionTx() bool {

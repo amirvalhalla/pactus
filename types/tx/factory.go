@@ -3,16 +3,14 @@ package tx
 import (
 	"github.com/pactus-project/pactus/crypto"
 	"github.com/pactus-project/pactus/crypto/bls"
-	"github.com/pactus-project/pactus/crypto/hash"
 	"github.com/pactus-project/pactus/sortition"
 	"github.com/pactus-project/pactus/types/tx/payload"
 )
 
-func NewSubsidyTx(stamp hash.Stamp, lockTime uint32,
+func NewSubsidyTx(lockTime uint32,
 	receiver crypto.Address, amount int64, memo string,
 ) *Tx {
 	return NewTransferTx(
-		stamp,
 		lockTime,
 		crypto.TreasuryAddress,
 		receiver,
@@ -21,43 +19,43 @@ func NewSubsidyTx(stamp hash.Stamp, lockTime uint32,
 		memo)
 }
 
-func NewTransferTx(stamp hash.Stamp, lockTime uint32,
+func NewTransferTx(lockTime uint32,
 	sender, receiver crypto.Address,
 	amount, fee int64, memo string,
 ) *Tx {
 	pld := &payload.TransferPayload{
-		Sender:   sender,
-		Receiver: receiver,
-		Amount:   amount,
+		From:   sender,
+		To:     receiver,
+		Amount: amount,
 	}
-	return NewTx(stamp, lockTime, pld, fee, memo)
+	return NewTx(lockTime, pld, fee, memo)
 }
 
-func NewBondTx(stamp hash.Stamp, lockTime uint32,
+func NewBondTx(lockTime uint32,
 	sender, receiver crypto.Address,
 	pubKey *bls.PublicKey,
 	stake, fee int64, memo string,
 ) *Tx {
 	pld := &payload.BondPayload{
-		Sender:    sender,
-		Receiver:  receiver,
+		From:      sender,
+		To:        receiver,
 		PublicKey: pubKey,
 		Stake:     stake,
 	}
-	return NewTx(stamp, lockTime, pld, fee, memo)
+	return NewTx(lockTime, pld, fee, memo)
 }
 
-func NewUnbondTx(stamp hash.Stamp, lockTime uint32,
+func NewUnbondTx(lockTime uint32,
 	val crypto.Address,
 	memo string,
 ) *Tx {
 	pld := &payload.UnbondPayload{
 		Validator: val,
 	}
-	return NewTx(stamp, lockTime, pld, 0, memo)
+	return NewTx(lockTime, pld, 0, memo)
 }
 
-func NewWithdrawTx(stamp hash.Stamp, lockTime uint32,
+func NewWithdrawTx(lockTime uint32,
 	val crypto.Address,
 	acc crypto.Address,
 	amount, fee int64,
@@ -68,16 +66,16 @@ func NewWithdrawTx(stamp hash.Stamp, lockTime uint32,
 		To:     acc,
 		Amount: amount,
 	}
-	return NewTx(stamp, lockTime, pld, fee, memo)
+	return NewTx(lockTime, pld, fee, memo)
 }
 
-func NewSortitionTx(stamp hash.Stamp, lockTime uint32,
+func NewSortitionTx(lockTime uint32,
 	addr crypto.Address,
 	proof sortition.Proof,
 ) *Tx {
 	pld := &payload.SortitionPayload{
-		Address: addr,
-		Proof:   proof,
+		Validator: addr,
+		Proof:     proof,
 	}
-	return NewTx(stamp, lockTime, pld, 0, "")
+	return NewTx(lockTime, pld, 0, "")
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pactus-project/pactus/committee"
 	"github.com/pactus-project/pactus/crypto"
+	"github.com/pactus-project/pactus/crypto/bls"
 	"github.com/pactus-project/pactus/crypto/hash"
 	"github.com/pactus-project/pactus/execution"
 	"github.com/pactus-project/pactus/genesis"
@@ -33,7 +34,7 @@ import (
 type state struct {
 	lk sync.RWMutex
 
-	signers         []crypto.Signer
+	valKeys         []*bls.ValidatorKey
 	genDoc          *genesis.Genesis
 	store           store.Store
 	params          param.Params
@@ -49,12 +50,12 @@ type state struct {
 
 func LoadOrNewState(
 	genDoc *genesis.Genesis,
-	signers []crypto.Signer,
+	valKeys []*bls.ValidatorKey,
 	store store.Store,
 	txPool txpool.TxPool, eventCh chan event.Event,
 ) (Facade, error) {
 	st := &state{
-		signers:         signers,
+		valKeys:         valKeys,
 		genDoc:          genDoc,
 		txPool:          txPool,
 		params:          genDoc.Params(),
@@ -114,7 +115,7 @@ func (st *state) tryLoadLastInfo() error {
 		return err
 	}
 
-	if !genStateRoot.EqualsTo(blockOne.Header().StateRoot()) {
+	if genStateRoot != blockOne.Header().StateRoot() {
 		return fmt.Errorf("invalid genesis doc")
 	}
 
@@ -161,7 +162,7 @@ func (st *state) makeGenesisState(genDoc *genesis.Genesis) error {
 
 func (st *state) loadMerkels() {
 	totalAccount := st.store.TotalAccounts()
-	st.store.IterateAccounts(func(addr crypto.Address, acc *account.Account) (stop bool) {
+	st.store.IterateAccounts(func(addr crypto.Address, acc *account.Account) bool {
 		// Let's keep this check, even we have tested it
 		if acc.Number() >= totalAccount {
 			panic("Account number is out of range")
@@ -172,20 +173,20 @@ func (st *state) loadMerkels() {
 	})
 
 	totalValidator := st.store.TotalValidators()
-	st.store.IterateValidators(func(val *validator.Validator) (stop bool) {
+	st.store.IterateValidators(func(val *validator.Validator) bool {
 		// Let's keep this check, even we have tested it
 		if val.Number() >= totalValidator {
 			panic("Validator number is out of range")
 		}
 		st.validatorMerkle.SetHash(int(val.Number()), val.Hash())
 
-		return
+		return false
 	})
 }
 
 func (st *state) retrieveTotalPower() int64 {
 	totalPower := int64(0)
-	st.store.IterateValidators(func(val *validator.Validator) (stop bool) {
+	st.store.IterateValidators(func(val *validator.Validator) bool {
 		totalPower += val.Power()
 		return false
 	})
@@ -280,17 +281,16 @@ func (st *state) UpdateLastCertificate(cert *certificate.Certificate) error {
 }
 
 func (st *state) createSubsidyTx(rewardAddr crypto.Address, fee int64) *tx.Tx {
-	stamp := st.lastInfo.BlockHash().Stamp()
 	lockTime := st.lastInfo.BlockHeight() + 1
-	tx := tx.NewSubsidyTx(stamp, lockTime, rewardAddr, st.params.BlockReward+fee, "")
-	return tx
+	transaction := tx.NewSubsidyTx(lockTime, rewardAddr, st.params.BlockReward+fee, "")
+	return transaction
 }
 
-func (st *state) ProposeBlock(signer crypto.Signer, rewardAddr crypto.Address, round int16) (*block.Block, error) {
+func (st *state) ProposeBlock(valKey *bls.ValidatorKey, rewardAddr crypto.Address, round int16) (*block.Block, error) {
 	st.lk.Lock()
 	defer st.lk.Unlock()
 
-	if !st.committee.IsProposer(signer.Address(), round) {
+	if !st.committee.IsProposer(valKey.Address(), round) {
 		return nil, errors.Errorf(errors.ErrGeneric, "we are not proposer for this round")
 	}
 
@@ -337,8 +337,8 @@ func (st *state) ProposeBlock(signer crypto.Signer, rewardAddr crypto.Address, r
 		st.lastInfo.BlockHash(),
 		st.stateRoot(),
 		st.lastInfo.Certificate(),
-		preSeed.GenerateNext(signer),
-		signer.Address())
+		preSeed.GenerateNext(valKey.PrivateKey()),
+		valKey.Address())
 
 	return block, nil
 }
@@ -383,7 +383,7 @@ func (st *state) CommitBlock(height uint32, block *block.Block, cert *certificat
 	// tries to commit them.
 	// We should never have a fork in our blockchain.
 	// But if it happens, here we can catch it.
-	if !block.Header().PrevBlockHash().EqualsTo(st.lastInfo.BlockHash()) {
+	if block.Header().PrevBlockHash() != st.lastInfo.BlockHash() {
 		st.logger.Panic("a possible fork is detected",
 			"our hash", st.lastInfo.BlockHash(),
 			"block hash", block.Header().PrevBlockHash())
@@ -454,8 +454,8 @@ func (st *state) CommitBlock(height uint32, block *block.Block, cert *certificat
 
 func (st *state) evaluateSortition() bool {
 	evaluated := false
-	for _, signer := range st.signers {
-		val, _ := st.store.Validator(signer.Address())
+	for _, key := range st.valKeys {
+		val, _ := st.store.Validator(key.Address())
 		if val == nil {
 			// We are not a validator
 			continue
@@ -471,20 +471,22 @@ func (st *state) evaluateSortition() bool {
 			continue
 		}
 
-		ok, proof := sortition.EvaluateSortition(st.lastInfo.SortitionSeed(), signer, st.totalPower, val.Power())
+		ok, proof := sortition.EvaluateSortition(st.lastInfo.SortitionSeed(), key.PrivateKey(), st.totalPower, val.Power())
 		if ok {
-			trx := tx.NewSortitionTx(st.lastInfo.BlockHash().Stamp(), st.lastInfo.BlockHeight()+1, val.Address(), proof)
-			signer.SignMsg(trx)
+			trx := tx.NewSortitionTx(st.lastInfo.BlockHeight(), val.Address(), proof)
+			sig := key.Sign(trx.SignBytes())
+			trx.SetSignature(sig)
+			trx.SetPublicKey(key.PublicKey())
 
 			err := st.txPool.AppendTxAndBroadcast(trx)
 			if err == nil {
 				st.logger.Info("sortition transaction broadcasted",
-					"address", signer.Address(), "power", val.Power(), "tx", trx)
+					"address", key.Address(), "power", val.Power(), "tx", trx)
 
 				evaluated = true
 			} else {
 				st.logger.Error("our sortition transaction is invalid!",
-					"address", signer.Address(), "power", val.Power(), "tx", trx, "error", err)
+					"address", key.Address(), "power", val.Power(), "tx", trx, "error", err)
 			}
 		}
 	}
@@ -705,8 +707,8 @@ func (st *state) publishEvents(height uint32, block *block.Block) {
 		accChangeEvent := event.CreateAccountChangeEvent(tx.Payload().Signer(), height)
 		st.eventCh <- accChangeEvent
 
-		if tx.Payload().ReceiverAddr() != nil {
-			accChangeEvent := event.CreateAccountChangeEvent(*tx.Payload().ReceiverAddr(), height)
+		if tx.Payload().Receiver() != nil {
+			accChangeEvent := event.CreateAccountChangeEvent(*tx.Payload().Receiver(), height)
 			st.eventCh <- accChangeEvent
 		}
 
@@ -733,4 +735,8 @@ func (st *state) CalculateFee(amount int64, payloadType payload.Type) (int64, er
 	default:
 		return 0, errors.Errorf(errors.ErrInvalidTx, "unexpected tx type: %v", payloadType)
 	}
+}
+
+func (st *state) PublicKey(addr crypto.Address) (crypto.PublicKey, error) {
+	return st.store.PublicKey(addr)
 }

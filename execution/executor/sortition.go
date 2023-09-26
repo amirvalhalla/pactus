@@ -21,7 +21,7 @@ func NewSortitionExecutor(strict bool) *SortitionExecutor {
 func (e *SortitionExecutor) Execute(trx *tx.Tx, sb sandbox.Sandbox) error {
 	pld := trx.Payload().(*payload.SortitionPayload)
 
-	val := sb.Validator(pld.Address)
+	val := sb.Validator(pld.Validator)
 	if val == nil {
 		return errors.Errorf(errors.ErrInvalidAddress,
 			"unable to retrieve validator")
@@ -31,7 +31,7 @@ func (e *SortitionExecutor) Execute(trx *tx.Tx, sb sandbox.Sandbox) error {
 		return errors.Errorf(errors.ErrInvalidHeight,
 			"validator has bonded at height %v", val.LastBondingHeight())
 	}
-	ok := sb.VerifyProof(trx.Stamp(), pld.Proof, val)
+	ok := sb.VerifyProof(trx.LockTime(), pld.Proof, val)
 	if !ok {
 		return errors.Error(errors.ErrInvalidProof)
 	}
@@ -60,7 +60,7 @@ func (e *SortitionExecutor) Execute(trx *tx.Tx, sb sandbox.Sandbox) error {
 
 	val.UpdateLastSortitionHeight(sortitionHeight)
 
-	sb.JoinedToCommittee(pld.Address)
+	sb.JoinedToCommittee(pld.Validator)
 	sb.UpdateValidator(val)
 
 	return nil

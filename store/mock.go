@@ -58,7 +58,7 @@ func (m *MockStore) BlockHash(height uint32) hash.Hash {
 
 func (m *MockStore) BlockHeight(hash hash.Hash) uint32 {
 	for h, b := range m.Blocks {
-		if b.Hash().EqualsTo(hash) {
+		if b.Hash() == hash {
 			return h
 		}
 	}
@@ -71,6 +71,11 @@ func (m *MockStore) PublicKey(addr crypto.Address) (*bls.PublicKey, error) {
 			if trx.Payload().Signer() == addr {
 				return trx.PublicKey().(*bls.PublicKey), nil
 			}
+		}
+	}
+	for _, val := range m.Validators {
+		if val.Address() == addr {
+			return val.PublicKey(), nil
 		}
 	}
 	return nil, ErrNotFound
@@ -211,16 +216,6 @@ func (m *MockStore) LastCertificate() (uint32, *certificate.Certificate) {
 	return m.LastHeight, m.LastCert
 }
 
-func (m *MockStore) RecentBlockByStamp(stamp hash.Stamp) (uint32, *block.Block) {
-	for h, b := range m.Blocks {
-		if b.Stamp().EqualsTo(stamp) {
-			return h, b
-		}
-	}
-
-	return 0, nil
-}
-
 func (m *MockStore) WriteBatch() error {
 	return nil
 }
@@ -231,14 +226,14 @@ func (m *MockStore) AddTestValidator() *validator.Validator {
 	return val
 }
 
-func (m *MockStore) AddTestAccount() (*account.Account, crypto.Signer) {
-	acc, signer := m.ts.GenerateTestAccount(m.ts.RandInt32(10000))
-	m.UpdateAccount(signer.Address(), acc)
-	return acc, signer
+func (m *MockStore) AddTestAccount() (*account.Account, crypto.Address) {
+	acc, addr := m.ts.GenerateTestAccount(m.ts.RandInt32(10000))
+	m.UpdateAccount(addr, acc)
+	return acc, addr
 }
 
 func (m *MockStore) AddTestBlock(height uint32) *block.Block {
-	blk := m.ts.GenerateTestBlock(nil)
+	blk := m.ts.GenerateTestBlock()
 	cert := m.ts.GenerateTestCertificate()
 	m.SaveBlock(height, blk, cert)
 	return blk
